@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>HarborWatch — bonded uptime pledges on BOT Chain</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Oswald:wght@400;500;600&display=swap" rel="stylesheet" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.9.0/ethers.umd.min.js"></script>
+<style>
+/* ============================================================================
+   HYPER-SKEUOMORPHISM — rack-mounted monitoring hardware.
+   Brushed aluminium, machined screws, analog needle meters, LED lamps,
+   debossed engraving. Every watch is a 1U unit bolted into the rack.
+   ========================================================================== */
+:root{
+  --rack:#1a1c1f;
+  --rail:#25282c;
+  --alu-1:#d7d9db;
+  --alu-2:#b9bcc0;
+  --alu-3:#9ea2a7;
+  --engrave:#3d4248;
+  --led-green:#4ade6a;
+  --led-amber:#ffb13b;
+  --led-red:#ff4a3d;
+  --screen:#0f1410;
+  --screen-ink:#8fe6a4;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{
+  background:var(--rack);
+  background-image:
+    repeating-linear-gradient(90deg, rgba(0,0,0,.35) 0 2px, transparent 2px 7px),
+    linear-gradient(180deg,#202327,#131517);
+  color:var(--alu-1);
+  font-family:'Oswald',sans-serif;font-size:15px;
+}
+.rackframe{max-width:1180px;margin:0 auto;padding:22px 16px 60px;position:relative}
+/* the vertical rack rails with mounting holes */
+.rackframe::before,.rackframe::after{
+  content:"";position:absolute;top:22px;bottom:60px;width:26px;
+  background:linear-gradient(90deg,#3a3e43,#23262a 60%,#15171a);
+  background-image:repeating-linear-gradient(180deg, transparent 0 18px,
+    rgba(0,0,0,.65) 18px 24px, transparent 24px 42px);
+  border-radius:3px;
+}
+.rackframe::before{left:0}
+.rackframe::after{right:0}
+.bay{margin:0 38px}
+
+/* ---------- machined screw ---------- */
+.screw{width:13px;height:13px;border-radius:50%;
+  background:radial-gradient(circle at 34% 30%, #f2f3f4, #8d9196 58%, #5c6065);
+  box-shadow:inset 0 -1px 2px rgba(0,0,0,.5), 0 1px 1px rgba(0,0,0,.55);
+  position:relative;flex:0 0 auto}
+.screw::after{content:"";position:absolute;left:2px;right:2px;top:50%;height:2px;
+  background:#4a4e53;transform:translateY(-50%) rotate(34deg);border-radius:2px}
+
+/* ---------- a panel of brushed aluminium ---------- */
+.panel{
+  background:linear-gradient(180deg,var(--alu-1),var(--alu-2) 48%,var(--alu-3));
+  background-image:repeating-linear-gradient(90deg, rgba(255,255,255,.4) 0 1px, transparent 1px 3px),
+    linear-gradient(180deg,#dfe1e3,#b6b9bd 52%,#999da2);
+  border-radius:5px;
+  box-shadow:0 1px 0 rgba(255,255,255,.75) inset, 0 -2px 4px rgba(0,0,0,.3) inset,
+             0 6px 14px rgba(0,0,0,.55);
+  color:#2a2e33;position:relative;
+}
+.panel .bolts{position:absolute;inset:7px 9px auto;display:flex;justify-content:space-between;pointer-events:none}
+.panel .bolts-b{position:absolute;inset:auto 9px 7px;display:flex;justify-content:space-between;pointer-events:none}
+
+/* ---------- control head (top unit) ---------- */
+.head{padding:20px 26px 22px;margin-bottom:16px}
+.head .inner{display:grid;grid-template-columns:1fr auto auto;gap:26px;align-items:center}
+@media(max-width:900px){.head .inner{grid-template-columns:1fr}}
+.brand{display:flex;flex-direction:column;gap:2px}
+.brand .model{font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:.3em;color:#5b6168}
+.brand h1{margin:0;font-family:'Oswald';font-weight:600;font-size:40px;letter-spacing:.02em;
+  color:#2a2e33;text-transform:uppercase;
+  text-shadow:0 1px 0 rgba(255,255,255,.85), 0 -1px 0 rgba(0,0,0,.25)}
+.brand .sub{font-size:13.5px;color:#4d525a;max-width:44ch;font-weight:400}
+
+/* analog meters */
+.meters{display:flex;gap:16px}
+.meter{width:118px}
+.meter svg{display:block;width:118px;height:72px}
+.meter .lab{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.18em;
+  text-align:center;color:#565c63;margin-top:2px}
+
+/* power block */
+.power{display:flex;flex-direction:column;gap:10px;align-items:center}
+.lamp{width:15px;height:15px;border-radius:50%;background:#2c2f33;
+  box-shadow:inset 0 2px 3px rgba(0,0,0,.8), 0 0 0 3px #b6b9bd, 0 0 0 4px #8b8f94}
+.lamp.on{background:var(--led-green);box-shadow:inset 0 0 4px rgba(255,255,255,.7),
+  0 0 11px var(--led-green), 0 0 0 3px #b6b9bd, 0 0 0 4px #8b8f94}
+.lamp.warn{background:var(--led-amber);box-shadow:0 0 11px var(--led-amber),0 0 0 3px #b6b9bd,0 0 0 4px #8b8f94}
+
+/* physical switch used as the connect control */
+.switch{width:76px;height:40px;border-radius:5px;cursor:pointer;border:none;padding:0;
+  background:linear-gradient(180deg,#7e8389,#4e5257);
+  box-shadow:0 2px 0 #3a3e42, 0 5px 9px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.35);
+  position:relative}
+.switch span{position:absolute;left:4px;right:4px;top:4px;height:16px;border-radius:3px;
+  background:linear-gradient(180deg,#e8eaec,#b4b8bc);transition:transform .16s}
+.switch.on span{transform:translateY(16px)}
+.switch:active span{filter:brightness(.92)}
+.switchlab{font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.2em;color:#565c63}
+
+/* readout screen */
+.screenbox{background:var(--screen);border-radius:4px;padding:9px 13px;
+  box-shadow:inset 0 2px 7px rgba(0,0,0,.9), 0 1px 0 rgba(255,255,255,.5);
+  font-family:'JetBrains Mono',monospace;font-size:11.5px;color:var(--screen-ink);
+  line-height:1.7;letter-spacing:.04em;min-width:232px}
+.screenbox b{color:#d8ffe2;font-weight:400}
+.screenbox .dim{color:#4f7a59}
+
+/* ---------- 1U rack unit per watch ---------- */
+.unit{padding:16px 26px 18px;margin-bottom:13px;display:grid;
+  grid-template-columns:150px 1fr 160px auto;gap:22px;align-items:center}
+@media(max-width:980px){.unit{grid-template-columns:1fr;gap:14px}}
+.plate{background:linear-gradient(180deg,#5d6269,#3f4349);border-radius:3px;padding:9px 12px;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.25), 0 1px 2px rgba(0,0,0,.4)}
+.plate .nm{font-family:'JetBrains Mono',monospace;font-size:12.5px;color:#e6e9eb;
+  word-break:break-all;line-height:1.35}
+.plate .id{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.2em;color:#9aa0a6;margin-top:3px}
+.unitmeta{font-family:'JetBrains Mono',monospace;font-size:10.5px;color:#4d525a;letter-spacing:.05em;line-height:1.75}
+.unitmeta .big{font-family:'Oswald';font-size:25px;color:#24282d;letter-spacing:.02em;display:block;line-height:1.1}
+.ledstack{display:flex;gap:9px;align-items:center;margin-bottom:7px}
+.ledlab{font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.16em;color:#565c63}
+.knobs{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+
+/* chunky hardware buttons */
+.btn{
+  font-family:'Oswald';font-weight:500;font-size:12.5px;letter-spacing:.12em;text-transform:uppercase;
+  color:#22262a;border:none;cursor:pointer;padding:9px 15px;border-radius:4px;
+  background:linear-gradient(180deg,#eceef0,#c2c6ca);
+  box-shadow:0 2px 0 #878c91, 0 4px 7px rgba(0,0,0,.4), inset 0 1px 0 rgba(255,255,255,.9);
+  transition:.06s;
+}
+.btn:hover:not(:disabled){filter:brightness(1.05)}
+.btn:active:not(:disabled){transform:translateY(2px);box-shadow:0 0 0 #878c91, 0 1px 3px rgba(0,0,0,.4)}
+.btn:disabled{opacity:.42;cursor:not-allowed;box-shadow:none}
+.btn.alarm{background:linear-gradient(180deg,#ff6b5e,#cf3326);color:#fff;box-shadow:0 2px 0 #8e2217,0 4px 7px rgba(0,0,0,.45)}
+.btn.go{background:linear-gradient(180deg,#6fe28a,#2fae51);color:#0f2a17;box-shadow:0 2px 0 #1d7437,0 4px 7px rgba(0,0,0,.45)}
+
+/* ---------- the drawer that holds the form ---------- */
+details.drawer{margin-bottom:16px}
+details.drawer summary{list-style:none;cursor:pointer;padding:13px 26px;
+  display:flex;align-items:center;gap:14px;font-family:'Oswald';font-weight:500;
+  font-size:15px;letter-spacing:.14em;text-transform:uppercase;color:#2a2e33}
+details.drawer summary::-webkit-details-marker{display:none}
+details.drawer summary .handle{width:60px;height:9px;border-radius:4px;
+  background:linear-gradient(180deg,#8c9197,#5a5f65);box-shadow:inset 0 1px 0 rgba(255,255,255,.4)}
+.drawerbody{padding:4px 26px 24px;display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:18px;align-items:end}
+label{display:block;font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.2em;
+  color:#565c63;margin-bottom:5px}
+input,select{width:100%;padding:10px 11px;border:none;border-radius:3px;
+  background:var(--screen);color:var(--screen-ink);
+  font-family:'JetBrains Mono',monospace;font-size:13px;
+  box-shadow:inset 0 2px 6px rgba(0,0,0,.85)}
+input:focus,select:focus{outline:2px solid #4ade6a;outline-offset:1px}
+
+.emptybay{padding:46px 26px;text-align:center;font-family:'JetBrains Mono',monospace;
+  font-size:12px;letter-spacing:.14em;color:#5b6168}
+
+/* ---------- toast as a bench label ---------- */
+#toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%) translateY(170%);
+  background:linear-gradient(180deg,#e9ebed,#bfc3c7);color:#23272b;padding:11px 20px;border-radius:4px;
+  box-shadow:0 5px 16px rgba(0,0,0,.6), inset 0 1px 0 rgba(255,255,255,.9);
+  font-family:'JetBrains Mono',monospace;font-size:11.5px;max-width:88vw;transition:transform .2s;z-index:60}
+#toast.show{transform:translateX(-50%) translateY(0)}
+#toast.bad{background:linear-gradient(180deg,#ff7b6e,#c93225);color:#fff}
+
+footer{margin:26px 38px 0;font-family:'JetBrains Mono',monospace;font-size:9.5px;
+  letter-spacing:.2em;color:#6c7279;display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}
+
+/* ===== BOT Chain ecosystem footer (KPI 5) ===== */
+footer.bc-foot{display:block;margin:0 38px 26px;border-radius:5px;
+  background-image:repeating-linear-gradient(90deg, rgba(255,255,255,.4) 0 1px, transparent 1px 3px),
+    linear-gradient(180deg,#dfe1e3,#b6b9bd 52%,#999da2);
+  box-shadow:0 1px 0 rgba(255,255,255,.75) inset, 0 -2px 4px rgba(0,0,0,.3) inset,
+             0 6px 14px rgba(0,0,0,.55)}
+.bc-foot-grid{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:20px;
+  padding:16px 22px;border-bottom:1px solid rgba(42,46,51,.3)}
+@media(max-width:720px){.bc-foot-grid{grid-template-columns:1fr;gap:14px}}
+.bc-foot .bc-logo{border:1px solid #80848a;padding:8px 12px;background:#0f1410;border-radius:3px;
+  box-shadow:inset 0 2px 6px rgba(0,0,0,.8)}
+.bc-foot .bc-id{font-family:'Oswald',sans-serif;font-weight:600;font-size:19px;color:#23272b;
+  text-transform:uppercase;letter-spacing:.02em;
+  text-shadow:0 1px 0 rgba(255,255,255,.8)}
+.bc-foot .bc-id small{display:block;font-family:'JetBrains Mono',monospace;font-size:9px;
+  font-weight:400;letter-spacing:.22em;text-transform:uppercase;color:#5b6168;margin-top:3px}
+.bc-foot .bc-links{display:flex;gap:9px;flex-wrap:wrap}
+.bc-foot .bc-links a{font-family:'Oswald',sans-serif;font-weight:500;font-size:12.5px;
+  letter-spacing:.12em;text-transform:uppercase;color:#22262a;text-decoration:none;
+  padding:8px 14px;border-radius:4px;
+  background:linear-gradient(180deg,#eceef0,#c2c6ca);
+  box-shadow:0 2px 0 #878c91, inset 0 1px 0 rgba(255,255,255,.9)}
+.bc-foot .bc-links a:hover{filter:brightness(1.06)}
+.bc-foot .bc-meta{font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.18em;
+  text-transform:uppercase;color:#5b6168;padding:11px 22px;
+  display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap}
+.bc-foot .bc-meta b{color:#23272b}
+</style>
+</head>
+<body>
+<div class="rackframe">
+<div class="bay">
+
+  <!-- ===================== control head ===================== -->
+  <section class="panel head">
+    <div class="bolts"><div class="screw"></div><div class="screw"></div></div>
+    <div class="bolts-b"><div class="screw"></div><div class="screw"></div></div>
+    <div class="inner">
+      <div class="brand">
+        <div class="model">MODEL HW-56 · BONDED UPTIME MONITOR</div>
+        <h1>HarborWatch</h1>
+        <div class="sub">Post a bond, promise a heartbeat. Miss the deadline and anyone can pull the alarm and take a cut of the bond.</div>
+      </div>
+
+      <div class="meters">
+        <div class="meter">
+          <svg viewBox="0 0 120 74" id="m-bonded">
+            <defs><linearGradient id="face" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#fbfbf7"/><stop offset="100%" stop-color="#ddded6"/></linearGradient></defs>
+            <rect x="2" y="2" width="116" height="70" rx="3" fill="url(#face)" stroke="#8d9196"/>
+            <path d="M18 60 A44 44 0 0 1 102 60" fill="none" stroke="#2a2e33" stroke-width="1.6"/>
+            <path d="M18 60 A44 44 0 0 1 36 28" fill="none" stroke="#cf3326" stroke-width="4"/>
+            <g stroke="#2a2e33" stroke-width="1.4">
+              <line x1="22" y1="50" x2="26" y2="46"/><line x1="40" y1="31" x2="43" y2="36"/>
+              <line x1="60" y1="24" x2="60" y2="30"/><line x1="80" y1="31" x2="77" y2="36"/>
+              <line x1="98" y1="50" x2="94" y2="46"/>
+            </g>
+            <line id="needle-bonded" x1="60" y1="60" x2="60" y2="27" stroke="#cf3326" stroke-width="2.2" stroke-linecap="round"/>
+            <circle cx="60" cy="60" r="4" fill="#3d4248"/>
+            <text x="60" y="70" text-anchor="middle" font-family="JetBrains Mono" font-size="7" fill="#565c63">BOT BONDED</text>
+          </svg>
+          <div class="lab" id="v-bonded">—</div>
+        </div>
+        <div class="meter">
+          <svg viewBox="0 0 120 74">
+            <rect x="2" y="2" width="116" height="70" rx="3" fill="url(#face)" stroke="#8d9196"/>
+            <path d="M18 60 A44 44 0 0 1 102 60" fill="none" stroke="#2a2e33" stroke-width="1.6"/>
+            <path d="M84 28 A44 44 0 0 1 102 60" fill="none" stroke="#2fae51" stroke-width="4"/>
+            <g stroke="#2a2e33" stroke-width="1.4">
+              <line x1="22" y1="50" x2="26" y2="46"/><line x1="60" y1="24" x2="60" y2="30"/>
+              <line x1="98" y1="50" x2="94" y2="46"/>
+            </g>
+            <line id="needle-watch" x1="60" y1="60" x2="60" y2="27" stroke="#2a2e33" stroke-width="2.2" stroke-linecap="round"/>
+            <circle cx="60" cy="60" r="4" fill="#3d4248"/>
+            <text x="60" y="70" text-anchor="middle" font-family="JetBrains Mono" font-size="7" fill="#565c63">UNITS ONLINE</text>
+          </svg>
+          <div class="lab" id="v-watch">—</div>
+        </div>
+      </div>
+
+      <div class="power">
+        <div class="lamp" id="lamp"></div>
+        <button class="switch" id="sw-connect" aria-label="Connect wallet"><span></span></button>
+        <div class="switchlab" id="sw-lab">LINK</div>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:center;margin-top:18px">
+      <div class="screenbox" id="readout">
+        <div><span class="dim">NET </span><b id="r-net">—</b></div>
+        <div><span class="dim">ACC </span><b id="r-acct">not linked</b></div>
+        <div><span class="dim">CTR </span><b id="r-ctr">not set</b></div>
+      </div>
+      <div class="screenbox" id="readout2">
+        <div><span class="dim">SLASH </span><b id="r-slash">—</b><span class="dim"> OF BOND</span></div>
+        <div><span class="dim">BOUNTY </span><b id="r-bounty">—</b><span class="dim"> OF SLASH</span></div>
+        <div><span class="dim">MIN BOND </span><b id="r-min">—</b></div>
+      </div>
+      <button class="btn" id="btn-refresh">Re-scan bay</button>
+    </div>
+  </section>
+
+  <!-- ===================== drawer: commission a watch ===================== -->
+  <details class="panel drawer" id="drawer">
+    <summary><span class="handle"></span> Commission a new unit</summary>
+    <div class="drawerbody">
+      <div>
+        <label for="f-label">SERVICE NAME</label>
+        <input id="f-label" maxlength="64" placeholder="rpc.mynode.example" />
+      </div>
+      <div>
+        <label for="f-interval">CHECK-IN INTERVAL</label>
+        <select id="f-interval">
+          <option value="3600">01H</option>
+          <option value="21600" selected>06H</option>
+          <option value="43200">12H</option>
+          <option value="86400">24H</option>
+          <option value="604800">7D</option>
+        </select>
+      </div>
+      <div>
+        <label for="f-bond">BOND / BOT</label>
+        <input id="f-bond" type="number" min="0" step="0.01" value="0.5" />
+      </div>
+      <div><button class="btn go" id="btn-open">Bolt it in</button></div>
+    </div>
+  </details>
+
+  <!-- ===================== the bay ===================== -->
+  <div id="bay"></div>
+
+  <footer>
+    <span>HARBORWATCH · 15 MIN GRACE · 24H CLOSE DELAY</span>
+    <span id="f-chain">BOT CHAIN</span>
+  </footer>
+</div>
+</div>
+
+
+<!-- ===== BOT Chain ecosystem footer (KPI 5) ===== -->
+<footer class="bc-foot">
+  <div class="bc-foot-grid">
+    <div class="bc-logo" aria-hidden="true"><svg viewBox="0 0 63.63 100" xmlns="http://www.w3.org/2000/svg" style="width:19px;height:30px;display:block"><path fill="#00A67E" d="M31.67 99.95 L0 82.48 L0.11 63.74 L47.01 90.60 L47.01 73.19 L15.98 55.32 L15.95 36.49 L46.92 53.57 L47.39 36.82 L15.96 17.81 L16.26 0 L63.06 27.02 L62.82 46.20 L47.86 54.67 L62.85 63.00 L63.62 81.42 Z"/></svg></div>
+    <div class="bc-id">BOT Chain<small>Part of the ecosystem</small></div>
+    <div class="bc-links">
+      <a href="https://botchain.ai" target="_blank" rel="noopener noreferrer">botchain.ai</a>
+      <a id="bc-explorer" href="https://scan.botchain.ai" target="_blank" rel="noopener noreferrer">Explorer</a>
+    </div>
+  </div>
+  <div class="bc-meta">
+    <span>&copy; 2026 <b>BOT Chain</b> &mdash; EVM-compatible Layer 1</span>
+  </div>
+</footer>
+
+<div id="toast"></div>
+
+<script>
+/* ============================================================================
+   CONTRACT + NETWORK CONFIG
+
+   Paste the deployed address below. Defaults to BOT Chain TESTNET.
+
+   TESTNET -> MAINNET: swap these five values together, never some of them.
+     CONTRACT_ADDRESS  -> the mainnet address
+     chainId           -> "0x2A5"
+     chainName         -> "BOT Chain"
+     rpcUrls           -> ["https://rpc.botchain.ai"]
+     blockExplorerUrls -> ["https://scan.botchain.ai"]
+   ...and set label -> "MAINNET" so the badge reads correctly.
+   ========================================================================== */
+const CONTRACT_ADDRESS = "0x0000000000000000000000000000000000000000";
+
+const NETWORK = {
+  chainId: "0x3C8",                              // 968 testnet  | mainnet: "0x2A5"
+  chainIdDec: 968,                               // reference only, not shown on the page | mainnet: 677
+  chainName: "BOT Chain Testnet",                //              | mainnet: "BOT Chain"
+  rpcUrls: ["https://rpc.bohr.life"],            //              | mainnet: ["https://rpc.botchain.ai"]
+  blockExplorerUrls: ["https://scan.bohr.life"], //              | mainnet: ["https://scan.botchain.ai"]
+  nativeCurrency: { name: "BOT", symbol: "BOT", decimals: 18 },
+  label: "TESTNET"                               //              | mainnet: "MAINNET"
+};
+
+const ABI = [
+  "function openWatch(string label, uint64 intervalSecs) payable returns (uint256)",
+  "function pulse(uint256 id)",
+  "function topUpBond(uint256 id) payable",
+  "function raiseAlarm(uint256 id)",
+  "function requestClose(uint256 id)",
+  "function closeWatch(uint256 id)",
+  "function dueAt(uint256 id) view returns (uint256)",
+  "function watchCount() view returns (uint256)",
+  "function getRecent(uint256 limit) view returns (uint256[])",
+  "function getWatch(uint256 id) view returns (tuple(address operator,uint64 intervalSecs,uint64 lastPulse,uint64 createdAt,uint64 closeRequestedAt,uint256 bond,uint32 pulseCount,uint32 strikes,uint8 status,string label))",
+  "function minBond() view returns (uint256)",
+  "function slashBps() view returns (uint16)",
+  "function challengerBps() view returns (uint16)",
+  "function bondedTotal() view returns (uint256)"
+];
+
+const ZERO = "0x0000000000000000000000000000000000000000";
+const $ = (id) => document.getElementById(id);
+let provider, signer, account, contract, readContract;
+let rows = [];
+
+function toast(msg, bad) {
+  const t = $("toast");
+  t.textContent = msg;
+  t.className = "show" + (bad ? " bad" : "");
+  clearTimeout(t._h);
+  t._h = setTimeout(() => (t.className = ""), 4200);
+}
+const short = (a) => a.slice(0, 6) + "…" + a.slice(-4);
+const fmt = (wei) => {
+  const n = Number(ethers.formatEther(wei));
+  return (n >= 1 ? n.toFixed(3) : n.toFixed(4)).replace(/0+$/, "").replace(/\.$/, "");
+};
+function esc(s) {
+  return String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+}
+function reason(e) {
+  const m = (e && (e.shortMessage || e.reason || e.message)) || "Transaction failed";
+  return String(m).replace(/^execution reverted:?\s*/i, "").slice(0, 150);
+}
+function dur(sec) {
+  sec = Number(sec);
+  if (sec <= 0) return "OVERDUE";
+  const d = Math.floor(sec / 86400), h = Math.floor((sec % 86400) / 3600),
+        m = Math.floor((sec % 3600) / 60), s = sec % 60;
+  if (d > 0) return d + "D " + String(h).padStart(2, "0") + "H";
+  return String(h).padStart(2, "0") + ":" + String(m).padStart(2, "0") + ":" + String(s).padStart(2, "0");
+}
+/** Point a meter needle at a 0..1 reading. */
+function setNeedle(el, frac) {
+  const a = -90 + Math.max(0, Math.min(1, frac)) * 180;
+  el.setAttribute("transform", "rotate(" + a.toFixed(1) + " 60 60)");
+}
+
+/* ---------------------------------------------------------------- wallet */
+function readOnly() {
+  try {
+    const p = new ethers.JsonRpcProvider(NETWORK.rpcUrls[0]);
+    readContract = new ethers.Contract(CONTRACT_ADDRESS, ABI, p);
+  } catch (e) { /* read-only view unavailable */ }
+}
+async function connect() {
+  if (!window.ethereum) { toast("No wallet found. Install MetaMask.", true); return; }
+  try {
+    provider = new ethers.BrowserProvider(window.ethereum);
+    await provider.send("eth_requestAccounts", []);
+    await ensureChain();
+    signer = await provider.getSigner();
+    account = await signer.getAddress();
+    contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
+    $("r-acct").textContent = short(account);
+    $("sw-connect").classList.add("on");
+    $("sw-lab").textContent = "LINKED";
+    $("lamp").className = "lamp on";
+    await load();
+  } catch (e) { toast(reason(e), true); }
+}
+async function ensureChain() {
+  const current = await window.ethereum.request({ method: "eth_chainId" });
+  if (current.toLowerCase() === NETWORK.chainId.toLowerCase()) return;
+  try {
+    await window.ethereum.request({ method: "wallet_switchEthereumChain", params: [{ chainId: NETWORK.chainId }] });
+  } catch (err) {
+    if (err.code === 4902) {
+      await window.ethereum.request({
+        method: "wallet_addEthereumChain",
+        params: [{
+          chainId: NETWORK.chainId, chainName: NETWORK.chainName, rpcUrls: NETWORK.rpcUrls,
+          blockExplorerUrls: NETWORK.blockExplorerUrls, nativeCurrency: NETWORK.nativeCurrency
+        }]
+      });
+    } else throw err;
+  }
+}
+
+/* ------------------------------------------------------------------ load */
+async function load() {
+  const c = contract || readContract;
+  if (!c || CONTRACT_ADDRESS === ZERO) { render(); return; }
+  try {
+    const [count, bonded, slash, bounty, min] = await Promise.all([
+      c.watchCount(), c.bondedTotal(), c.slashBps(), c.challengerBps(), c.minBond()
+    ]);
+    $("v-bonded").textContent = fmt(bonded) + " BOT";
+    $("v-watch").textContent = count.toString() + " UNITS";
+    $("r-slash").textContent = (Number(slash) / 100) + "%";
+    $("r-bounty").textContent = (Number(bounty) / 100) + "%";
+    $("r-min").textContent = fmt(min) + " BOT";
+    setNeedle($("needle-bonded"), Math.min(1, Number(ethers.formatEther(bonded)) / 50));
+    setNeedle($("needle-watch"), Math.min(1, Number(count) / 20));
+
+    const ids = await c.getRecent(30n);
+    rows = [];
+    for (const id of ids) {
+      rows.push({ id, w: await c.getWatch(id), due: Number(await c.dueAt(id)) });
+    }
+    render();
+  } catch (e) {
+    toast("Bay scan failed — check the address and network.", true);
+  }
+}
+
+/* ---------------------------------------------------------------- render */
+const STATUS = ["ACTIVE", "BREACHED", "CLOSED"];
+
+function render() {
+  const bay = $("bay");
+  if (CONTRACT_ADDRESS === ZERO) {
+    bay.innerHTML = '<div class="panel emptybay">NO CONTRACT ADDRESS SET — DEPLOY HARBORWATCH AND PASTE IT INTO CONTRACT_ADDRESS IN THIS FILE</div>';
+    return;
+  }
+  if (!rows.length) { bay.innerHTML = '<div class="panel emptybay">BAY EMPTY — COMMISSION THE FIRST UNIT</div>'; return; }
+  const now = Math.floor(Date.now() / 1000);
+
+  bay.innerHTML = rows.map(({ id, w, due }) => {
+    const status = Number(w.status);
+    const left = due - now;
+    const overdue = status === 0 && left <= 0;
+    const mine = account && w.operator.toLowerCase() === account.toLowerCase();
+    const frac = status === 0 ? Math.max(0, Math.min(1, left / Number(w.intervalSecs))) : 0;
+    const lamp = status !== 0 ? "" : overdue ? "warn" : "on";
+
+    let knobs = "";
+    if (status !== 2) {
+      if (mine && status === 0) knobs += '<button class="btn go" data-act="pulse" data-id="' + id + '">Pulse</button>';
+      if (mine) knobs += '<button class="btn" data-act="top" data-id="' + id + '">Top up</button>';
+      if (mine && status === 0 && Number(w.closeRequestedAt) === 0) knobs += '<button class="btn" data-act="req" data-id="' + id + '">Eject</button>';
+      if (mine && (status === 1 || Number(w.closeRequestedAt) > 0)) knobs += '<button class="btn" data-act="close" data-id="' + id + '">Pull unit</button>';
+      if (!mine && overdue) knobs += '<button class="btn alarm" data-act="alarm" data-id="' + id + '">Alarm</button>';
+    }
+
+    return '<section class="panel unit">' +
+      '<div class="bolts"><div class="screw"></div><div class="screw"></div></div>' +
+      '<div class="bolts-b"><div class="screw"></div><div class="screw"></div></div>' +
+      '<div class="plate"><div class="nm">' + esc(w.label) + '</div>' +
+        '<div class="id">U' + String(id).padStart(3, "0") + " · " + short(w.operator) + '</div></div>' +
+      '<div class="unitmeta">' +
+        '<div class="ledstack"><span class="lamp ' + lamp + '"></span>' +
+          '<span class="ledlab">' + (overdue ? "DEADLINE MISSED" : STATUS[status]) + '</span></div>' +
+        'BOND ' + fmt(w.bond) + ' BOT &nbsp;·&nbsp; EVERY ' + hours(Number(w.intervalSecs)) +
+        ' &nbsp;·&nbsp; ' + w.pulseCount + ' PULSES &nbsp;·&nbsp; ' + w.strikes + ' STRIKES' +
+      '</div>' +
+      '<div class="unitmeta" style="text-align:right">' +
+        '<span class="big" data-due="' + due + '" data-status="' + status + '">' +
+          (status === 0 ? dur(left) : STATUS[status]) + '</span>' +
+        (status === 0 ? "TO DEADLINE" : "FINAL") +
+        '<div style="margin-top:6px">' + gauge(frac, overdue) + '</div>' +
+      '</div>' +
+      '<div class="knobs">' + knobs + '</div>' +
+    '</section>';
+  }).join("");
+}
+
+/** A small horizontal bar meter etched into the panel. */
+function gauge(frac, overdue) {
+  const w = 140, fill = Math.round(w * frac);
+  return '<svg width="' + w + '" height="11" viewBox="0 0 ' + w + ' 11">' +
+    '<rect x="0" y="0" width="' + w + '" height="11" rx="2" fill="#3d4248"/>' +
+    '<rect x="1" y="1" width="' + Math.max(0, fill - 2) + '" height="9" rx="1" fill="' +
+      (overdue ? "#ff4a3d" : frac < 0.25 ? "#ffb13b" : "#4ade6a") + '"/>' +
+    '</svg>';
+}
+function hours(s) {
+  if (s % 86400 === 0) return (s / 86400) + "D";
+  if (s % 3600 === 0) return (s / 3600) + "H";
+  return Math.round(s / 60) + "M";
+}
+
+/* --------------------------------------------------------------- actions */
+async function send(label, fn) {
+  if (!contract) { toast("Throw the LINK switch first.", true); return; }
+  try {
+    toast(label + "…");
+    const tx = await fn();
+    await tx.wait();
+    toast(label + " confirmed");
+    await load();
+  } catch (e) { toast(reason(e), true); }
+}
+
+$("btn-open").onclick = () => {
+  const label = $("f-label").value.trim();
+  const bond = $("f-bond").value;
+  if (!label) { toast("Engrave a service name first.", true); return; }
+  if (!(Number(bond) > 0)) { toast("Post a bond above zero.", true); return; }
+  send("Bolting in", () => contract.openWatch(label, $("f-interval").value, { value: ethers.parseEther(bond) }));
+};
+
+$("bay").addEventListener("click", (ev) => {
+  const b = ev.target.closest("button[data-act]");
+  if (!b) return;
+  const id = b.dataset.id;
+  switch (b.dataset.act) {
+    case "pulse": return send("Pulsing", () => contract.pulse(id));
+    case "alarm": return send("Pulling the alarm", () => contract.raiseAlarm(id));
+    case "req":   return send("Requesting eject", () => contract.requestClose(id));
+    case "close": return send("Pulling the unit", () => contract.closeWatch(id));
+    case "top": {
+      const amt = prompt("Top up how much BOT?", "0.25");
+      if (!amt || !(Number(amt) > 0)) return;
+      return send("Topping up", () => contract.topUpBond(id, { value: ethers.parseEther(amt) }));
+    }
+  }
+});
+
+$("sw-connect").onclick = connect;
+$("btn-refresh").onclick = load;
+
+/* ------------------------------------------------------------------ boot */
+$("r-net").textContent = NETWORK.chainName.toUpperCase() + " · " + NETWORK.label;
+$("f-chain").textContent = "BOT CHAIN " + NETWORK.label;
+if (CONTRACT_ADDRESS !== ZERO) {
+  $("r-ctr").textContent = short(CONTRACT_ADDRESS);
+} else {
+  $("lamp").className = "lamp warn";
+}
+if (window.ethereum) {
+  window.ethereum.on("accountsChanged", () => location.reload());
+  window.ethereum.on("chainChanged", () => location.reload());
+}
+readOnly();
+load();
+
+setInterval(() => {
+  const now = Math.floor(Date.now() / 1000);
+  document.querySelectorAll("[data-due]").forEach((el) => {
+    if (el.dataset.status !== "0") return;
+    el.textContent = dur(Number(el.dataset.due) - now);
+  });
+}, 1000);
+
+/* ---- BOT Chain ecosystem footer: follows the NETWORK config above ---- */
+(function () {
+  var ex = document.getElementById("bc-explorer");
+  if (ex) ex.href = NETWORK.blockExplorerUrls[0];
+})();
+</script>
+</body>
+</html>
